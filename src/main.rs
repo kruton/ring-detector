@@ -1,7 +1,7 @@
 use clap::Parser;
 use dns_parser::Packet as DnsPacket;
 use fstrm::FstrmReader;
-use log::{debug, info, warn, trace};
+use log::{debug, info, trace, warn};
 use ring_detection::{dnstap::Dnstap, socks::AutoRemoveFile};
 use std::{
     io::Result,
@@ -50,6 +50,8 @@ fn handle_packet(packet: DnsPacket) {
 }
 
 fn main() {
+    env_logger::builder().format_timestamp(None).init();
+
     let cli = Cli::parse();
 
     let mut sock_path: AutoRemoveFile = cli.socket.to_str().expect("path is not valid").into();
