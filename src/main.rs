@@ -3,7 +3,7 @@ use dns_parser::Packet as DnsPacket;
 use fstrm::FstrmReader;
 use log::{debug, info, trace, warn};
 use prost::{bytes::BytesMut, Message};
-use ring_detection::{dnstap::Dnstap, socks::AutoRemoveFile};
+use ring_detection::dnstap::Dnstap;
 use std::{
     io::{Read, Result},
     os::unix::net::{UnixListener, UnixStream},
@@ -55,8 +55,7 @@ fn handle_packet(packet: DnsPacket) {
                 dns_parser::QueryType::A | dns_parser::QueryType::AAAA
             )
         })
-        .map(|q| q.qname.to_string())
-        .filter(|name| name.eq("amazon.eu.s3.amazonaws.com"));
+        .map(|q| q.qname.to_string());
 
     trace!("name: {:?}", qtype_name);
 }
@@ -69,14 +68,11 @@ fn main() {
     let cli = Cli::parse();
 
     if cli.socket.exists() {
-        std::fs::remove_file(cli.socket);
+        std::fs::remove_file(&cli.socket).expect("cannot delete existing socket");
     }
 
-    let mut sock_path: AutoRemoveFile = cli.socket.to_str().expect("path is not valid").into();
-
-    let listener = UnixListener::bind(&sock_path).expect("Cannot bind to socket");
-    info!("listening on {}", sock_path);
-    sock_path.set_auto_remove(true);
+    let listener = UnixListener::bind(&cli.socket).expect("cannot bind to socket");
+    info!("listening on {}", cli.socket.display());
 
     for stream in listener.incoming() {
         match stream {
