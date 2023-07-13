@@ -436,6 +436,7 @@ name = "ring-detection"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "log",
  "protobuf",
  "protobuf-codegen",
  "protoc-bin-vendored",
