@@ -21,6 +21,22 @@ struct Cli {
     #[arg(short, long)]
     /// socket for dnstap listener
     socket: std::path::PathBuf,
+
+    #[arg(long)]
+    /// MQTT hostname
+    host: String,
+
+    #[arg(long)]
+    /// MQTT port
+    port: u16,
+
+    #[arg(short, long)]
+    /// MQTT username
+    username: String,
+
+    #[arg(short, long)]
+    /// MQTT password
+    password: String,
 }
 
 #[derive(Debug)]
