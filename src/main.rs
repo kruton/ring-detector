@@ -68,6 +68,10 @@ fn main() {
 
     let cli = Cli::parse();
 
+    if cli.socket.exists() {
+        std::fs::remove_file(cli.socket);
+    }
+
     let mut sock_path: AutoRemoveFile = cli.socket.to_str().expect("path is not valid").into();
 
     let listener = UnixListener::bind(&sock_path).expect("Cannot bind to socket");
