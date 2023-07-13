@@ -10,6 +10,8 @@ use std::{
     thread,
 };
 
+static HOST: &str = "alarm.eu.s3.amazonaws.com";
+
 #[derive(Parser)]
 #[command(name = "ring-detector")]
 /// Works with your DNS server to detect when EZVIZ doorbell button is activated.
@@ -57,7 +59,11 @@ fn handle_packet(packet: DnsPacket) {
         })
         .map(|q| q.qname.to_string());
 
-    trace!("name: {:?}", qtype_name);
+    if let Some(hostname) = &qtype_name {
+        if hostname.eq_ignore_ascii_case(HOST) {
+            debug!("we got it");
+        }
+    }
 }
 
 fn main() {
