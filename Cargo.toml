@@ -1,12 +1,14 @@
 [package]
+edition = "2021"
 name = "ring-detection"
 version = "0.1.0"
-edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = { version = "4.3.11", features = ["derive"] }
+clap = {version = "4.3.11", features = ["derive"]}
+dns-parser = "0.8.0"
+fstrm = {git = "https://github.com/sorz/rust-fstrm/", rev = "5416fa0"}
 log = "0.4.19"
 protobuf = "3.2.0"
 
