@@ -13,6 +13,7 @@ env_logger = "0.10.0"
 fstrm = {git = "https://github.com/sorz/rust-fstrm/", rev = "5416fa0"}
 log = "0.4.19"
 prost = "0.11.9"
+rumqttc = "0.22.0"
 
 [build-dependencies]
 prost-build = "0.11.9"
