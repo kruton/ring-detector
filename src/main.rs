@@ -2,9 +2,10 @@ use clap::Parser;
 use dns_parser::Packet as DnsPacket;
 use fstrm::FstrmReader;
 use log::{debug, info, trace, warn};
+use prost::{bytes::BytesMut, Message};
 use ring_detection::{dnstap::Dnstap, socks::AutoRemoveFile};
 use std::{
-    io::Result,
+    io::{Read, Result},
     os::unix::net::{UnixListener, UnixStream},
     thread,
 };
@@ -25,11 +26,20 @@ fn handle_stream(stream: UnixStream) -> Result<()> {
     debug!("FSTRM handshake finish {:?}", reader.content_types());
 
     while let Some(mut frame) = reader.read_frame()? {
-        let dnstap: Dnstap = protobuf::Message::parse_from_reader(&mut frame)?;
-        let msg = dnstap.message.unwrap();
-        match DnsPacket::parse(msg.query_message()) {
-            Ok(packet) => handle_packet(packet),
-            Err(err) => debug!("failed to parse DNS packet: {}", err),
+        // DataFrame appears to have some kind of bug where UnixStream does not return
+        // 0 so it hangs until the next byte?
+        let mut buffer = BytesMut::new();
+        buffer.resize(frame.size(), 0);
+        frame.read_exact(&mut buffer)?;
+
+        let dnstap: Dnstap = Dnstap::decode(buffer)?;
+        let msg = dnstap.message.expect("dnstap frame did not have message");
+
+        if let Some(query) = msg.query_message {
+            match DnsPacket::parse(&query) {
+                Ok(packet) => handle_packet(packet),
+                Err(err) => debug!("failed to parse DNS packet: {}", err),
+            }
         }
     }
     Ok(())
@@ -45,12 +55,16 @@ fn handle_packet(packet: DnsPacket) {
                 dns_parser::QueryType::A | dns_parser::QueryType::AAAA
             )
         })
-        .map(|q| (q.qtype, q.qname.to_string()));
+        .map(|q| q.qname.to_string())
+        .filter(|name| name.eq("amazon.eu.s3.amazonaws.com"));
+
     trace!("name: {:?}", qtype_name);
 }
 
 fn main() {
-    env_logger::builder().format_timestamp(None).init();
+    env_logger::builder()
+        .format_timestamp(Some(env_logger::TimestampPrecision::Millis))
+        .init();
 
     let cli = Cli::parse();
 

@@ -6,13 +6,13 @@ version = "0.1.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bytes = "1.4.0"
 clap = {version = "4.3.11", features = ["derive"]}
 dns-parser = "0.8.0"
 env_logger = "0.10.0"
 fstrm = {git = "https://github.com/sorz/rust-fstrm/", rev = "5416fa0"}
 log = "0.4.19"
-protobuf = "3.2.0"
+prost = "0.11.9"
 
 [build-dependencies]
-protobuf-codegen = "3.2.0"
-protoc-bin-vendored = "3.0.0"
+prost-build = "0.11.9"
