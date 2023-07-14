@@ -13,6 +13,7 @@ type PacketHandler = fn(DnsPacket, IpAddr) -> Result<()>;
 
 pub fn handle_stream(stream: UnixStream, handler: PacketHandler) -> Result<()> {
     info!("connected to DNS server");
+    let _ = stream.set_nonblocking(false);
     let reader = FstrmReader::<_, ()>::new(stream);
     let mut reader = reader.accept()?.start()?;
     debug!("FSTRM handshake finish {:?}", reader.content_types());

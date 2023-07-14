@@ -1,7 +1,7 @@
 use clap::Parser;
 use log::{info, warn};
 use ring_detection::dns::{handle_packet, handle_stream};
-use std::{os::unix::net::UnixListener, thread};
+use tokio::{net::UnixListener, task};
 
 #[derive(Parser)]
 #[command(name = "ring-detector")]
@@ -28,7 +28,8 @@ struct Cli {
     password: String,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     env_logger::builder()
         .format_timestamp(Some(env_logger::TimestampPrecision::Millis))
         .init();
@@ -42,15 +43,21 @@ fn main() {
     let listener = UnixListener::bind(&cli.socket).expect("cannot bind to socket");
     info!("listening on {}", cli.socket.display());
 
-    for stream in listener.incoming() {
-        match stream {
-            Ok(stream) => {
-                thread::spawn(move || match handle_stream(stream, handle_packet) {
-                    Ok(_) => info!("unbound disconnected"),
-                    Err(err) => warn!("error on thread: {}", err),
+    tokio::select! {
+        _ = async {
+            loop {
+                let stream = match listener.accept().await {
+                    Ok((stream, _addr)) => stream,
+                    Err(e) => panic!("failure to connect: {}", e),
+                };
+
+                task::spawn(async move {
+                    match handle_stream(stream.into_std().unwrap(), handle_packet) {
+                        Ok(_) => info!("unbound disconnected"),
+                        Err(err) => warn!("error on thread: {}", err),
+                    }
                 });
             }
-            Err(err) => panic!("failure to connect: {}", err),
-        }
+        } => {}
     }
 }
