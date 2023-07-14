@@ -3,4 +3,5 @@ pub mod dnstap {
 }
 
 pub mod dns;
+pub mod mqtt;
 pub mod net;
