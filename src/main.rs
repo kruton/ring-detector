@@ -24,19 +24,19 @@ struct Cli {
 
     #[arg(long)]
     /// MQTT hostname
-    host: String,
+    mqtt_host: String,
 
     #[arg(long)]
     /// MQTT port
-    port: u16,
+    mqtt_port: u16,
 
     #[arg(short, long)]
     /// MQTT username
-    username: String,
+    mqtt_username: String,
 
     #[arg(short, long)]
     /// MQTT password
-    password: String,
+    mqtt_password: String,
 }
 
 async fn accept_dns(listener: &UnixListener, sender: Sender<MqttMessage>) {
@@ -108,12 +108,12 @@ async fn main() -> Result<()> {
     let (tx, mut rx) = mpsc::channel(10);
 
     let mut mqtt_client = MqttClient::new(
-        cli.host.as_str(),
-        cli.port,
-        cli.username.as_str(),
-        cli.password.as_str(),
+        cli.mqtt_host.as_str(),
+        cli.mqtt_port,
+        cli.mqtt_username.as_str(),
+        cli.mqtt_password.as_str(),
     );
-    info!("MQTT configured to {}:{}", cli.host, cli.port);
+    info!("MQTT configured to {}:{}", cli.mqtt_host, cli.mqtt_port);
 
     loop {
         tokio::select! {
