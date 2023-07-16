@@ -1,9 +1,10 @@
+use anyhow::{anyhow, Error};
 use std::{
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
     result::Result,
 };
 
-type IpError = &'static str;
+type IpError = Error;
 
 pub fn parse_octets(value: &[u8]) -> Result<IpAddr, IpError> {
     match value.len() {
@@ -15,7 +16,7 @@ pub fn parse_octets(value: &[u8]) -> Result<IpAddr, IpError> {
             let addr: [u8; 16] = value.try_into().unwrap();
             Ok(IpAddr::V6(Ipv6Addr::from(addr)))
         }
-        _ => Err("unexpected address length"),
+        _ => Err(anyhow!("unexpected address length")),
     }
 }
 
