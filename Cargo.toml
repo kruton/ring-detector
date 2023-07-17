@@ -7,9 +7,13 @@ name = "ring-detector"
 repository = "https://github.com/kruton/ring-detector"
 version = "0.1.0"
 
+[[bin]]
+name = "ring-detector"
+path = "src/main.rs"
+
 [profile.release]
-codegen-units = 1
-lto = true
+codegen-units = 1 
+lto = true 
 opt-level = 'z' # Optimize for size.
 
 [dependencies]
