@@ -14,13 +14,20 @@
  * limitations under the License.
  */
 
-use anyhow::{Context, Result};
-use clap::Parser;
-use log::{debug, error, info, trace, warn};
-use ring_detector::{
+pub mod dnstap {
+    include!(concat!(env!("OUT_DIR"), "/dnstap.rs"));
+}
+pub mod dns;
+pub mod mqtt;
+pub mod net;
+
+use crate::{
     dns::DnsSocket,
     mqtt::{MqttClient, MqttMessage},
 };
+use anyhow::{Context, Result};
+use clap::Parser;
+use log::{debug, error, info, trace, warn};
 use rumqttc::{ConnectionError, EventLoop, QoS};
 use tokio::{
     net::UnixListener,
@@ -131,6 +138,7 @@ async fn main() -> Result<()> {
     );
     info!("MQTT configured to {}:{}", cli.mqtt_host, cli.mqtt_port);
 
+    info!("Server ready");
     loop {
         tokio::select! {
             _ = accept_dns(&listener, tx.clone()) => {},

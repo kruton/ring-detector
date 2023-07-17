@@ -3,7 +3,6 @@ authors = ["Kenny Root"]
 categories = ["command-line-utilities"]
 edition = "2021"
 license = "Apache-2.0"
-license-file = "LICENSE"
 name = "ring-detector"
 repository = "https://github.com/kruton/ring-detector"
 version = "0.1.0"
@@ -11,6 +10,7 @@ version = "0.1.0"
 [profile.release]
 codegen-units = 1
 lto = true
+opt-level = 'z' # Optimize for size.
 
 [dependencies]
 anyhow = "1.0.71"
