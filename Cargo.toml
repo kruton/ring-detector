@@ -1,9 +1,12 @@
 [package]
+authors = ["Kenny Root"]
+categories = ["command-line-utilities"]
 edition = "2021"
-name = "ring-detection"
+license = "Apache-2.0"
+license-file = "LICENSE"
+name = "ring-detector"
+repository = "https://github.com/kruton/ring-detector"
 version = "0.1.0"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [profile.release]
 codegen-units = 1

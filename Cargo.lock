@@ -800,7 +800,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ring-detection"
+name = "ring-detector"
 version = "0.1.0"
 dependencies = [
  "anyhow",
