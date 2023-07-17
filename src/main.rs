@@ -46,11 +46,11 @@ struct Cli {
     /// MQTT port
     mqtt_port: u16,
 
-    #[arg(short, long)]
+    #[arg(long)]
     /// MQTT username
     mqtt_username: String,
 
-    #[arg(short, long)]
+    #[arg(long)]
     /// MQTT password
     mqtt_password: String,
 }
