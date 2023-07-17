@@ -11,6 +11,11 @@ version = "0.1.0"
 name = "ring-detector"
 path = "src/main.rs"
 
+# This is to facilitate testing
+[lib]
+name = "ring_detector_lib"
+path = "src/lib.rs"
+
 [profile.release]
 codegen-units = 1 
 lto = true 

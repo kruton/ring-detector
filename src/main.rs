@@ -14,18 +14,10 @@
  * limitations under the License.
  */
 
-pub mod dnstap {
-    include!(concat!(env!("OUT_DIR"), "/dnstap.rs"));
-}
-pub mod bridge;
-pub mod dns;
-pub mod mqtt;
-pub mod net;
-
 use anyhow::{Context, Result};
 use clap::Parser;
 
-use crate::bridge::Bridge;
+use ring_detector_lib::bridge::Bridge;
 
 #[derive(Parser)]
 #[command(name = "ring-detector")]
