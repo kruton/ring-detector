@@ -15,6 +15,7 @@
  */
 
 use rumqttc::{AsyncClient, EventLoop, MqttOptions};
+use std::time::Duration;
 
 #[derive(Debug)]
 pub enum MqttMessage {
