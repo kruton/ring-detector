@@ -20,14 +20,14 @@ WORKDIR /home/app
 COPY Cargo.toml Cargo.lock ./
 RUN echo "fn main() {}" > dummy.rs
 RUN sed -i 's#src/main.rs#dummy.rs#' Cargo.toml
-RUN cargo build --release --target x86_64-unknown-linux-musl
+RUN cargo build --verbose --release --target x86_64-unknown-linux-musl
 RUN sed -i 's#dummy.rs#src/main.rs#' Cargo.toml
 RUN rm dummy.rs
 
 # Copy the source and build the application.
-COPY src ./src
+COPY . ./
 
-RUN cargo build --bins --release --target x86_64-unknown-linux-musl
+RUN cargo build --verbose --bins --release --target x86_64-unknown-linux-musl
 
 # Copy the statically-linked binary into a scratch container.
 FROM scratch
