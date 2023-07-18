@@ -26,6 +26,9 @@ jobs:
       run: sudo apt-get update &&
            sudo apt-get install -y --no-install-recommends
                protobuf-compiler
+ 
+    - name: Install stable Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
 
     - name: Build
       run: cargo build --verbose
