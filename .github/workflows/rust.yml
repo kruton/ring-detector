@@ -16,11 +16,13 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+      with:
+        submodules: recursive
 
     - name: Install prerequisites
-      run:  apt-get update && \
-            apt-get install -y --no-install-recommends \
-                protobuf-compiler
+      run: sudo apt-get update &&
+           sudo apt-get install -y --no-install-recommends
+               protobuf-compiler
 
     - name: Build
       run: cargo build --verbose
