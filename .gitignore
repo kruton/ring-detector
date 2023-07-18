@@ -2,3 +2,6 @@
 
 # Ignore VS Code files.
 /\.vscode
+
+# Code coverage
+lcov.info
