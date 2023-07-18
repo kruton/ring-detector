@@ -1,1 +1,4 @@
 /target
+
+# Ignore VS Code files.
+/\.vscode
