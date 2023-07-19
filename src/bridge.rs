@@ -84,7 +84,10 @@ impl Bridge {
                         break;
                     }
                 },
-                v = rx.recv() => self.publish_message(&mqtt_client, v).await,
+                v = rx.recv() => {
+                    let client_copy = mqtt_client.client.clone();
+                    self.publish_message(*client_copy, v).await;
+                },
             }
         }
 
@@ -125,7 +128,7 @@ impl Bridge {
         Ok(())
     }
 
-    async fn publish_message(&self, client: &MqttClient, msg: Option<MqttMessage>) {
+    async fn publish_message(&self, client: rumqttc::AsyncClient, msg: Option<MqttMessage>) {
         match msg {
             Some(MqttMessage::Publish { topic, payload }) => {
                 trace!(
@@ -134,7 +137,6 @@ impl Bridge {
                     String::from_utf8_lossy(payload.as_slice()),
                 );
                 client
-                    .client
                     .publish(topic, QoS::AtLeastOnce, false, payload)
                     .await
                     .unwrap();
