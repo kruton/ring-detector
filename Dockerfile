@@ -19,10 +19,9 @@ WORKDIR /home/app
 # Download the dependencies so we don't have to do this every time.
 COPY Cargo.toml Cargo.lock ./
 RUN echo "fn main() {}" > dummy.rs
-RUN sed -i 's#src/main.rs#dummy.rs#' Cargo.toml
+RUN sed -i.backup -e 's#src/main.rs#dummy.rs#' -e 's#src/lib.rs#dummy.rs#' Cargo.toml
 RUN cargo build --verbose --release --target x86_64-unknown-linux-musl
-RUN sed -i 's#dummy.rs#src/main.rs#' Cargo.toml
-RUN rm dummy.rs
+RUN mv Cargo.toml.backup Cargo.toml && rm -f dummy.rs
 
 # Copy the source and build the application.
 COPY . ./
