@@ -23,23 +23,23 @@ use ring_detector_lib::bridge::Bridge;
 #[command(name = "ring-detector")]
 /// Works with your DNS server to detect when EZVIZ doorbell button is activated.
 struct Cli {
-    #[arg(short, long)]
+    #[arg(short, long, env)]
     /// socket for dnstap listener
-    socket: std::path::PathBuf,
+    dns_socket: std::path::PathBuf,
 
-    #[arg(long)]
+    #[arg(long, env)]
     /// MQTT hostname
     mqtt_host: String,
 
-    #[arg(long)]
+    #[arg(long, env)]
     /// MQTT port
     mqtt_port: u16,
 
-    #[arg(long)]
+    #[arg(long, env)]
     /// MQTT username
     mqtt_username: String,
 
-    #[arg(long)]
+    #[arg(long, env)]
     /// MQTT password
     mqtt_password: String,
 }
@@ -52,13 +52,13 @@ async fn main() -> Result<()> {
 
     let cli = Cli::parse();
 
-    if cli.socket.exists() {
-        std::fs::remove_file(&cli.socket)
-            .with_context(|| format!("Cannot remove file {}", &cli.socket.display()))?;
+    if cli.dns_socket.exists() {
+        std::fs::remove_file(&cli.dns_socket)
+            .with_context(|| format!("Cannot remove file {}", &cli.dns_socket.display()))?;
     }
 
     let bridge = Bridge::new(
-        cli.socket,
+        cli.dns_socket,
         cli.mqtt_host,
         cli.mqtt_port,
         cli.mqtt_username,
