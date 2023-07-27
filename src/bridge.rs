@@ -20,6 +20,10 @@ use rumqttc::{ConnectionError, EventLoop, QoS};
 use std::{path::PathBuf, time::Duration};
 use tokio::{
     net::UnixListener,
+    signal::{
+        self,
+        unix::{signal, SignalKind},
+    },
     sync::mpsc::{self, Sender},
     task,
     time::sleep,
@@ -74,9 +78,18 @@ impl Bridge {
         );
         info!("MQTT configured to {}:{}", self.mqtt_host, self.mqtt_port);
 
+        // Watch for interrupts so we can send death message via MQTT.
+        let mut hup_signal = signal(SignalKind::hangup()).context("couldn't listen for SIGHUP")?;
+
         info!("Server ready");
         loop {
             tokio::select! {
+                _ = signal::ctrl_c() => {
+                    break;
+                },
+                _ = hup_signal.recv() => {
+                    break;
+                },
                 _ = self.accept_dns(&listener, tx.clone()) => {},
                 v = self.check_mqtt_notifications(&mut mqtt_client.eventloop) => {
                     if let Err(e) = v {
@@ -90,6 +103,8 @@ impl Bridge {
                 },
             }
         }
+
+        self.send_death(*mqtt_client.client.clone()).await;
 
         Ok(())
     }
@@ -143,5 +158,9 @@ impl Bridge {
             }
             None => todo!(),
         }
+    }
+
+    async fn send_death(&self, _client: rumqttc::AsyncClient) {
+        info!("We are exiting");
     }
 }
