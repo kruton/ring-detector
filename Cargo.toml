@@ -31,7 +31,7 @@ fstrm = {git = "https://github.com/sorz/rust-fstrm/", rev = "5416fa0"}
 log = "0.4.19"
 prost = "0.11.9"
 rumqttc = "0.22.0"
-tokio = {version = "1.29.1", features = ["full"]}
+tokio = {version = "1.30.0", features = ["full"]}
 
 [build-dependencies]
 prost-build = "0.11.9"
