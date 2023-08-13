@@ -16,7 +16,7 @@
 
 use anyhow::{Context, Result};
 use log::{debug, error, info, trace, warn};
-use rumqttc::{ConnectionError, EventLoop, QoS};
+use rumqttc::{ConnectionError, QoS};
 use std::{path::PathBuf, time::Duration};
 use tokio::{
     net::UnixListener,
@@ -36,6 +36,10 @@ use crate::{
 
 pub struct Bridge {
     dns_socket_path: PathBuf,
+    mqtt_config: Option<MqttConfig>,
+}
+
+struct MqttConfig {
     mqtt_host: String,
     mqtt_port: u16,
     mqtt_username: String,
@@ -43,7 +47,14 @@ pub struct Bridge {
 }
 
 impl Bridge {
-    pub fn new(
+    pub fn new(dns_socket_path: PathBuf) -> Self {
+        Self {
+            dns_socket_path,
+            mqtt_config: None,
+        }
+    }
+
+    pub fn with_mqtt(
         dns_socket_path: PathBuf,
         mqtt_host: String,
         mqtt_port: u16,
@@ -52,10 +63,12 @@ impl Bridge {
     ) -> Self {
         Self {
             dns_socket_path,
-            mqtt_host,
-            mqtt_port,
-            mqtt_username,
-            mqtt_password,
+            mqtt_config: Some(MqttConfig {
+                mqtt_host,
+                mqtt_port,
+                mqtt_username,
+                mqtt_password,
+            }),
         }
     }
 
@@ -70,18 +83,23 @@ impl Bridge {
 
         let (tx, mut rx) = mpsc::channel(10);
 
-        let mut mqtt_client = MqttClient::new(
-            self.mqtt_host.as_str(),
-            self.mqtt_port,
-            self.mqtt_username.as_str(),
-            self.mqtt_password.as_str(),
-        );
-        info!("MQTT configured to {}:{}", self.mqtt_host, self.mqtt_port);
+        let mut mqtt_client = if let Some(c) = &self.mqtt_config {
+            let mqtt_client = MqttClient::new(
+                c.mqtt_host.as_str(),
+                c.mqtt_port,
+                c.mqtt_username.as_str(),
+                c.mqtt_password.as_str(),
+            );
+            info!("MQTT configured to {}:{}", c.mqtt_host, c.mqtt_port);
+            Some(mqtt_client)
+        } else {
+            None
+        };
 
         // Watch for interrupts so we can send death message via MQTT.
         let mut hup_signal = signal(SignalKind::hangup()).context("couldn't listen for SIGHUP")?;
 
-        info!("Server ready");
+        error!("Server ready");
         loop {
             tokio::select! {
                 _ = signal::ctrl_c() => {
@@ -91,20 +109,24 @@ impl Bridge {
                     break;
                 },
                 _ = self.accept_dns(&listener, tx.clone()) => {},
-                v = self.check_mqtt_notifications(&mut mqtt_client.eventloop) => {
+                v = self.check_mqtt_notifications(&mut mqtt_client) => {
                     if let Err(e) = v {
                         error!("Problem with MQTT: {}", e);
                         break;
                     }
                 },
                 v = rx.recv() => {
-                    let client_copy = mqtt_client.client.clone();
-                    self.publish_message(*client_copy, v).await;
+                    if let Some(ref mut c) = mqtt_client {
+                        let client_copy = c.client.clone();
+                        self.publish_message(*client_copy, v).await;
+                    }
                 },
             }
         }
 
-        self.send_death(*mqtt_client.client.clone()).await;
+        if let Some(c) = mqtt_client {
+            self.send_death(*c.client.clone()).await;
+        }
 
         Ok(())
     }
@@ -126,20 +148,22 @@ impl Bridge {
 
     async fn check_mqtt_notifications(
         &self,
-        eventloop: &mut EventLoop,
+        mqtt_client: &mut Option<MqttClient>,
     ) -> Result<(), ConnectionError> {
-        let event = match eventloop.poll().await {
-            Ok(event) => event,
-            Err(e) if matches!(e, ConnectionError::ConnectionRefused(_)) => {
-                return Err(e);
-            }
-            Err(e) => {
-                debug!("Problem connecting to MQTT: {:?}", e);
-                sleep(Duration::from_secs(1)).await;
-                return Ok(());
-            }
-        };
-        debug!("mqtt: received {:?}", event);
+        if let Some(ref mut c) = mqtt_client {
+            let event = match c.eventloop.poll().await {
+                Ok(event) => event,
+                Err(e) if matches!(e, ConnectionError::ConnectionRefused(_)) => {
+                    return Err(e);
+                }
+                Err(e) => {
+                    debug!("Problem connecting to MQTT: {:?}", e);
+                    sleep(Duration::from_secs(1)).await;
+                    return Ok(());
+                }
+            };
+            debug!("mqtt: received {:?}", event);
+        }
         Ok(())
     }
 
