@@ -15,7 +15,7 @@
  */
 
 use anyhow::{Context, Result};
-use clap::Parser;
+use clap::{Args, Parser};
 
 use ring_detector_lib::bridge::Bridge;
 
@@ -23,25 +23,32 @@ use ring_detector_lib::bridge::Bridge;
 #[command(name = "ring-detector")]
 /// Works with your DNS server to detect when EZVIZ doorbell button is activated.
 struct Cli {
-    #[arg(short, long, env)]
+    #[arg(short = 's', long, env)]
     /// socket for dnstap listener
     dns_socket: std::path::PathBuf,
 
+    #[command(flatten)]
+    mqtt: MqttArgs,
+}
+
+#[derive(Args)]
+#[group(requires_all = ["mqtt_host", "mqtt_port", "mqtt_username", "mqtt_password"], required = false)]
+struct MqttArgs {
     #[arg(long, env)]
     /// MQTT hostname
-    mqtt_host: String,
+    mqtt_host: Option<String>,
 
     #[arg(long, env)]
     /// MQTT port
-    mqtt_port: u16,
+    mqtt_port: Option<u16>,
 
     #[arg(long, env)]
     /// MQTT username
-    mqtt_username: String,
+    mqtt_username: Option<String>,
 
     #[arg(long, env)]
     /// MQTT password
-    mqtt_password: String,
+    mqtt_password: Option<String>,
 }
 
 #[tokio::main]
@@ -57,12 +64,17 @@ async fn main() -> Result<()> {
             .with_context(|| format!("Cannot remove file {}", &cli.dns_socket.display()))?;
     }
 
-    let bridge = Bridge::new(
-        cli.dns_socket,
-        cli.mqtt_host,
-        cli.mqtt_port,
-        cli.mqtt_username,
-        cli.mqtt_password,
-    );
+    // Due to clap requires_all, if one MQTT parameter is there, they all are.
+    let bridge = match cli.mqtt.mqtt_host {
+        Some(host) => Bridge::with_mqtt(
+            cli.dns_socket,
+            host,
+            cli.mqtt.mqtt_port.unwrap(),
+            cli.mqtt.mqtt_username.unwrap(),
+            cli.mqtt.mqtt_password.unwrap(),
+        ),
+        None => Bridge::new(cli.dns_socket),
+    };
+
     bridge.start().await
 }
