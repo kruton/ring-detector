@@ -1,7 +1,7 @@
 # Dockerfile for creating a statically-linked Rust application using docker's
 # multi-stage build feature. This also leverages the docker build cache to avoid
 # re-downloading dependencies if they have not changed.
-FROM rust:1.71.1 AS build
+FROM rust:1.72.0 AS build
 
 # Download the target for static linking.
 RUN rustup target add x86_64-unknown-linux-musl
