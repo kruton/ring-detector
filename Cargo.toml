@@ -32,7 +32,7 @@ log = "0.4.20"
 prost = "0.12.1"
 rumqttc = "0.23.0"
 rustls = "0.21.8" # needed due to rumqttc
-tokio = {version = "1.33.0", features = ["full"]}
+tokio = {version = "1.35.0", features = ["full"]}
 
 [build-dependencies]
 prost-build = "0.12.1"
