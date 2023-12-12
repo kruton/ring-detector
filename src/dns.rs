@@ -20,7 +20,14 @@ use dns_parser::Packet as DnsPacket;
 use fstrm::FstrmReader;
 use log::{debug, info};
 use prost::{bytes::BytesMut, Message};
-use std::{io::Read, net::IpAddr, os::unix::net::UnixStream, time::Duration};
+use std::{
+    collections::HashSet,
+    io::Read,
+    net::IpAddr,
+    os::unix::net::UnixStream,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 use tokio::{sync::mpsc::Sender, time::Instant};
 
 const HOST_EU: &str = "alarm.eu.s3.amazonaws.com";
@@ -32,15 +39,21 @@ pub struct DnsSocket {
     stream: UnixStream,
     sender: Sender<MqttMessage>,
     start_time: Instant,
+    doorbells: Arc<Mutex<HashSet<String>>>,
 }
 
 impl DnsSocket {
-    pub fn new(stream: UnixStream, sender: Sender<MqttMessage>) -> Self {
+    pub fn new(
+        stream: UnixStream,
+        sender: Sender<MqttMessage>,
+        doorbells: Arc<Mutex<HashSet<String>>>,
+    ) -> Self {
         debug!("Ignoring packets from DNS server for {:?}", IGNORE_DURATION);
         Self {
             stream,
             sender,
             start_time: Instant::now() + IGNORE_DURATION,
+            doorbells,
         }
     }
 
@@ -92,6 +105,12 @@ impl DnsSocket {
         }
     }
 
+    fn get_config_message(&self, client: String) -> MqttMessage {
+        let topic = format!("ringdet-{}/config", client);
+        let payload = "{}".as_bytes().to_vec();
+        MqttMessage::Publish { topic, payload }
+    }
+
     async fn handle_packet<'a>(&self, packet: &'a DnsPacket<'a>, client: IpAddr) -> Result<()> {
         let messages: Vec<MqttMessage> = packet
             .questions
@@ -107,14 +126,33 @@ impl DnsSocket {
                 match name.to_string().as_str() {
                     HOST_EU | HOST_US => {
                         debug!("we got {} from {:?}", name, &client);
+                        let client_string = client.to_string();
+
+                        let new_client = {
+                            let mut lock = self.doorbells.lock().unwrap();
+                            if lock.get(&client_string) == None {
+                                lock.insert(client_string.clone());
+                                true
+                            } else {
+                                false
+                            }
+                        };
+
+                        let mut messages = vec![];
+                        if new_client {
+                            messages.push(self.get_config_message(client_string));
+                        }
+
                         let topic = format!("{}/action", client);
                         let payload = "{action:\"pressed\"}".as_bytes().to_vec();
+                        messages.push(MqttMessage::Publish { topic, payload });
 
-                        Some(MqttMessage::Publish { topic, payload })
+                        Some(messages)
                     }
                     _ => None,
                 }
             })
+            .flatten()
             .collect();
 
         for m in messages {

@@ -17,7 +17,12 @@
 use anyhow::{Context, Result};
 use log::{debug, error, info, trace, warn};
 use rumqttc::{ConnectionError, QoS};
-use std::{path::PathBuf, time::Duration};
+use std::{
+    collections::HashSet,
+    path::PathBuf,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 use tokio::{
     net::UnixListener,
     signal::{
@@ -37,6 +42,7 @@ use crate::{
 pub struct Bridge {
     dns_socket_path: PathBuf,
     mqtt_config: Option<MqttConfig>,
+    doorbells: Arc<Mutex<HashSet<String>>>,
 }
 
 struct MqttConfig {
@@ -52,6 +58,7 @@ impl Bridge {
         Self {
             dns_socket_path,
             mqtt_config: None,
+            doorbells: Arc::new(Mutex::new(HashSet::new())),
         }
     }
 
@@ -72,6 +79,7 @@ impl Bridge {
                 mqtt_password,
                 mqtt_topic_prefix,
             }),
+            doorbells: Arc::new(Mutex::new(HashSet::new())),
         }
     }
 
@@ -116,7 +124,7 @@ impl Bridge {
                 _ = hup_signal.recv() => {
                     break;
                 },
-                _ = self.accept_dns(&listener, tx.clone()) => {},
+                _ = self.accept_dns(&listener, tx.clone(), Arc::clone(&self.doorbells)) => {},
                 v = self.check_mqtt_notifications(&mut mqtt_client) => {
                     if let Err(e) = v {
                         error!("Problem with MQTT: {}", e);
@@ -139,14 +147,19 @@ impl Bridge {
         Ok(())
     }
 
-    async fn accept_dns(&self, listener: &UnixListener, sender: Sender<MqttMessage>) {
+    async fn accept_dns(
+        &self,
+        listener: &UnixListener,
+        sender: Sender<MqttMessage>,
+        doorbells: Arc<Mutex<HashSet<String>>>,
+    ) {
         let stream = match listener.accept().await {
             Ok((stream, _addr)) => stream,
             Err(e) => panic!("failure to connect: {}", e),
         };
 
         task::spawn(async move {
-            let dns_socket = DnsSocket::new(stream.into_std().unwrap(), sender);
+            let dns_socket = DnsSocket::new(stream.into_std().unwrap(), sender, doorbells);
             match dns_socket.handle_stream().await {
                 Ok(_) => info!("server disconnected"),
                 Err(err) => warn!("error on thread: {}", err),
