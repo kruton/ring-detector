@@ -44,6 +44,7 @@ struct MqttConfig {
     mqtt_port: u16,
     mqtt_username: String,
     mqtt_password: String,
+    mqtt_topic_prefix: String,
 }
 
 impl Bridge {
@@ -60,6 +61,7 @@ impl Bridge {
         mqtt_port: u16,
         mqtt_username: String,
         mqtt_password: String,
+        mqtt_topic_prefix: String,
     ) -> Self {
         Self {
             dns_socket_path,
@@ -68,6 +70,7 @@ impl Bridge {
                 mqtt_port,
                 mqtt_username,
                 mqtt_password,
+                mqtt_topic_prefix,
             }),
         }
     }
@@ -100,6 +103,11 @@ impl Bridge {
         let mut hup_signal = signal(SignalKind::hangup()).context("couldn't listen for SIGHUP")?;
 
         error!("Server ready");
+
+        if let Some(ref c) = mqtt_client {
+            self.send_birth(*c.client.clone()).await;
+        }
+
         loop {
             tokio::select! {
                 _ = signal::ctrl_c() => {
@@ -169,22 +177,59 @@ impl Bridge {
 
     async fn publish_message(&self, client: rumqttc::AsyncClient, msg: Option<MqttMessage>) {
         match msg {
-            Some(MqttMessage::Publish { topic, payload }) => {
-                trace!(
-                    "Sending MQTT packet topic '{}' payload '{}'",
-                    topic,
-                    String::from_utf8_lossy(payload.as_slice()),
-                );
-                client
-                    .publish(topic, QoS::AtLeastOnce, false, payload)
-                    .await
-                    .unwrap();
+            Some(MqttMessage::Publish {
+                topic: topic_suffix,
+                payload,
+            }) => {
+                if let Some(config) = &self.mqtt_config {
+                    let topic = format!("{}/{}", config.mqtt_topic_prefix, topic_suffix);
+                    trace!(
+                        "Sending MQTT packet topic '{}' payload '{}'",
+                        topic,
+                        String::from_utf8_lossy(payload.as_slice()),
+                    );
+                    client
+                        .publish(topic, QoS::AtLeastOnce, false, payload)
+                        .await
+                        .unwrap();
+                } else {
+                    info!(
+                        "{}: {}",
+                        topic_suffix,
+                        String::from_utf8_lossy(payload.as_slice())
+                    );
+                }
             }
             None => todo!(),
         }
     }
 
-    async fn send_death(&self, _client: rumqttc::AsyncClient) {
+    async fn send_birth(&self, client: rumqttc::AsyncClient) {
+        info!("We have started");
+        if let Some(c) = &self.mqtt_config {
+            let _ = client
+                .publish(
+                    format!("{}/status", c.mqtt_topic_prefix),
+                    QoS::AtLeastOnce,
+                    true,
+                    "online",
+                )
+                .await;
+        }
+    }
+
+    async fn send_death(&self, client: rumqttc::AsyncClient) {
         info!("We are exiting");
+        if let Some(c) = &self.mqtt_config {
+            let _ = client
+                .publish(
+                    format!("{}/status", c.mqtt_topic_prefix),
+                    QoS::AtLeastOnce,
+                    true,
+                    "offline",
+                )
+                .await;
+            let _ = client.disconnect().await;
+        }
     }
 }
