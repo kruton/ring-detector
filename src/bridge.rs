@@ -148,7 +148,7 @@ impl Bridge {
         task::spawn(async move {
             let dns_socket = DnsSocket::new(stream.into_std().unwrap(), sender);
             match dns_socket.handle_stream().await {
-                Ok(_) => info!("unbound disconnected"),
+                Ok(_) => info!("server disconnected"),
                 Err(err) => warn!("error on thread: {}", err),
             }
         });
