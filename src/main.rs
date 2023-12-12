@@ -32,7 +32,7 @@ struct Cli {
 }
 
 #[derive(Args)]
-#[group(requires_all = ["mqtt_host", "mqtt_port", "mqtt_username", "mqtt_password"], required = false)]
+#[group(requires_all = ["mqtt_host", "mqtt_port", "mqtt_username", "mqtt_password", "mqtt_topic_prefix"], required = false)]
 struct MqttArgs {
     #[arg(long, env)]
     /// MQTT hostname
@@ -49,6 +49,10 @@ struct MqttArgs {
     #[arg(long, env)]
     /// MQTT password
     mqtt_password: Option<String>,
+
+    #[arg(long, env, default_value = "homeassistant/button/ring-detector")]
+    /// MQTT topic prefix including autodiscovery
+    mqtt_topic_prefix: Option<String>,
 }
 
 #[tokio::main]
@@ -72,6 +76,7 @@ async fn main() -> Result<()> {
             cli.mqtt.mqtt_port.unwrap(),
             cli.mqtt.mqtt_username.unwrap(),
             cli.mqtt.mqtt_password.unwrap(),
+            cli.mqtt.mqtt_topic_prefix.unwrap(),
         ),
         None => Bridge::new(cli.dns_socket),
     };

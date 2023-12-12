@@ -107,7 +107,7 @@ impl DnsSocket {
                 match name.to_string().as_str() {
                     HOST_EU | HOST_US => {
                         debug!("we got {} from {:?}", name, &client);
-                        let topic = format!("homeassistant/ring-{}/action", client);
+                        let topic = format!("{}/action", client);
                         let payload = "{action:\"pressed\"}".as_bytes().to_vec();
 
                         Some(MqttMessage::Publish { topic, payload })
