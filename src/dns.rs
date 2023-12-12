@@ -105,9 +105,15 @@ impl DnsSocket {
         }
     }
 
-    fn get_config_message(&self, client: String) -> MqttMessage {
+    fn get_config_message(&self, client: &String) -> MqttMessage {
         let topic = format!("ringdet-{}/config", client);
         let payload = "{}".as_bytes().to_vec();
+        MqttMessage::Publish { topic, payload }
+    }
+
+    fn get_action_message(&self, client: &String) -> MqttMessage {
+        let topic = format!("ringdet-{}/action", client);
+        let payload = "{action:\"pressed\"}".as_bytes().to_vec();
         MqttMessage::Publish { topic, payload }
     }
 
@@ -140,12 +146,10 @@ impl DnsSocket {
 
                         let mut messages = vec![];
                         if new_client {
-                            messages.push(self.get_config_message(client_string));
+                            messages.push(self.get_config_message(&client_string));
                         }
 
-                        let topic = format!("{}/action", client);
-                        let payload = "{action:\"pressed\"}".as_bytes().to_vec();
-                        messages.push(MqttMessage::Publish { topic, payload });
+                        messages.push(self.get_action_message(&client_string));
 
                         Some(messages)
                     }
