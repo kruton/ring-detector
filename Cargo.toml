@@ -24,7 +24,7 @@ opt-level = 'z' # Optimize for size.
 [dependencies]
 anyhow = "1.0.80"
 bytes = "1.5.0"
-clap = {version = "4.5.2", features = ["derive", "env"]}
+clap = {version = "4.5.3", features = ["derive", "env"]}
 dns-parser = "0.8.0"
 env_logger = {version = "0.11.3", default-features = false}
 fstrm = {git = "https://github.com/sorz/rust-fstrm/", rev = "5416fa0"}
