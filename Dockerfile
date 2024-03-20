@@ -7,7 +7,8 @@ FROM rust:1.76.0 AS build
 RUN rustup target add x86_64-unknown-linux-musl
 RUN apt-get update && apt-get install -y --no-install-recommends \
     musl-tools \
-    protobuf-compiler
+    protobuf-compiler \
+    cmake
 
 # Install and cache dependencies layers
 # Rather than copying everything every time, re-use cached dependency layers
