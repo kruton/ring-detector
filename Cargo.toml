@@ -30,7 +30,7 @@ env_logger = {version = "0.11.3", default-features = false}
 fstrm = {git = "https://github.com/sorz/rust-fstrm/", rev = "5416fa0"}
 log = "0.4.20"
 prost = "0.12.3"
-rumqttc = "0.23.0"
+rumqttc = "0.24.0"
 rustls = "0.22.2" # needed due to rumqttc
 tokio = {version = "1.36.0", features = ["full"]}
 
