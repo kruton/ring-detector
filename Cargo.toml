@@ -39,4 +39,4 @@ prost-build = "0.13.1"
 
 [dev-dependencies]
 assert_cmd = "2.0.14"
-predicates = "3.1.0"
+predicates = "3.1.2"
