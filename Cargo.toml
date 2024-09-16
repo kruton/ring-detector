@@ -22,7 +22,7 @@ lto = true
 opt-level = 'z' # Optimize for size.
 
 [dependencies]
-anyhow = "1.0.86"
+anyhow = "1.0.89"
 bytes = "1.7.1"
 clap = {version = "4.5.16", features = ["derive", "env"]}
 dns-parser = "0.8.0"
