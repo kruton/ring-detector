@@ -35,7 +35,7 @@ rustls = "0.23.17" # needed due to rumqttc
 tokio = {version = "1.39.3", features = ["full"]}
 
 [build-dependencies]
-prost-build = "0.13.1"
+prost-build = "0.13.3"
 
 [dev-dependencies]
 assert_cmd = "2.0.16"
