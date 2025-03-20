@@ -83,6 +83,10 @@ impl Bridge {
         }
     }
 
+    pub fn has_mqtt_config(&self) -> bool {
+        self.mqtt_config.is_some()
+    }
+
     pub async fn start(&self) -> Result<()> {
         let listener = UnixListener::bind(self.dns_socket_path.clone()).with_context(|| {
             format!(

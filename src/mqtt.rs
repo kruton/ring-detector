@@ -44,3 +44,26 @@ impl MqttClient {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_mqtt_message_publish() {
+        let topic = "test/topic".to_string();
+        let payload = vec![1, 2, 3, 4];
+
+        let message = MqttMessage::Publish {
+            topic: topic.clone(),
+            payload: payload.clone(),
+        };
+
+        let MqttMessage::Publish {
+            topic: msg_topic,
+            payload: msg_payload,
+        } = message;
+        assert_eq!(topic, msg_topic);
+        assert_eq!(payload, msg_payload);
+    }
+}

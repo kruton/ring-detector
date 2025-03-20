@@ -166,3 +166,39 @@ impl DnsSocket {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::sync::mpsc;
+
+    #[tokio::test]
+    async fn test_get_config_message() {
+        let client = "192.168.1.100".to_string();
+        let (tx, _) = mpsc::channel(1);
+        let doorbells = Arc::new(Mutex::new(HashSet::new()));
+        let (stream_a, _) = std::os::unix::net::UnixStream::pair().unwrap();
+
+        let dns_socket = DnsSocket::new(stream_a, tx, doorbells);
+        let message = dns_socket.get_config_message(&client);
+
+        let MqttMessage::Publish { topic, payload } = message;
+        assert_eq!(topic, "ringdet-192.168.1.100/config");
+        assert_eq!(payload, "{}".as_bytes().to_vec());
+    }
+
+    #[tokio::test]
+    async fn test_get_action_message() {
+        let client = "192.168.1.100".to_string();
+        let (tx, _) = mpsc::channel(1);
+        let doorbells = Arc::new(Mutex::new(HashSet::new()));
+        let (stream_a, _) = std::os::unix::net::UnixStream::pair().unwrap();
+
+        let dns_socket = DnsSocket::new(stream_a, tx, doorbells);
+        let message = dns_socket.get_action_message(&client);
+
+        let MqttMessage::Publish { topic, payload } = message;
+        assert_eq!(topic, "ringdet-192.168.1.100/action");
+        assert_eq!(payload, "{action:\"pressed\"}".as_bytes().to_vec());
+    }
+}
