@@ -15,50 +15,44 @@
  */
 
 use anyhow::{Context, Result};
-use log::{debug, error, info, trace, warn};
-use rumqttc::{ConnectionError, QoS};
-use std::{
-    collections::HashSet,
-    path::PathBuf,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use log::{error, info};
+use std::path::PathBuf;
 use tokio::{
-    net::UnixListener,
     signal::{
         self,
         unix::{signal, SignalKind},
     },
-    sync::mpsc::{self, Sender},
-    task,
-    time::sleep,
+    sync::mpsc::{self},
 };
 
 use crate::{
-    dns::DnsSocket,
+    dns_service::DnsService,
+    listener::DnsListener,
+    messaging::MessagePublisher,
     mqtt::{MqttClient, MqttMessage},
+    mqtt_service::MqttService,
 };
 
 pub struct Bridge {
-    dns_socket_path: PathBuf,
-    mqtt_config: Option<MqttConfig>,
-    doorbells: Arc<Mutex<HashSet<String>>>,
-}
-
-struct MqttConfig {
-    mqtt_host: String,
-    mqtt_port: u16,
-    mqtt_username: String,
-    mqtt_password: String,
-    mqtt_topic_prefix: String,
+    dns_listener: Box<dyn DnsListener>,
+    message_publisher: Option<Box<dyn MessagePublisher>>,
 }
 
 impl Bridge {
     pub fn new(dns_socket_path: PathBuf) -> Self {
         Self {
-            dns_socket_path,
-            mqtt_config: None,
-            doorbells: Arc::new(Mutex::new(HashSet::new())),
+            dns_listener: Box::new(DnsService::new(dns_socket_path)),
+            message_publisher: None,
+        }
+    }
+
+    pub fn from_components(
+        dns_listener: Box<dyn DnsListener>,
+        message_publisher: Option<Box<dyn MessagePublisher>>,
+    ) -> Self {
+        Self {
+            dns_listener,
+            message_publisher,
         }
     }
 
@@ -70,55 +64,42 @@ impl Bridge {
         mqtt_password: String,
         mqtt_topic_prefix: String,
     ) -> Self {
+        let mqtt_client = MqttClient::new(
+            mqtt_host.as_str(),
+            mqtt_port,
+            mqtt_username.as_str(),
+            mqtt_password.as_str(),
+        );
+        info!("MQTT configured to {}:{}", mqtt_host, mqtt_port);
+
+        let mqtt_service = MqttService::new(*mqtt_client.client.clone(), mqtt_topic_prefix);
+
         Self {
-            dns_socket_path,
-            mqtt_config: Some(MqttConfig {
-                mqtt_host,
-                mqtt_port,
-                mqtt_username,
-                mqtt_password,
-                mqtt_topic_prefix,
-            }),
-            doorbells: Arc::new(Mutex::new(HashSet::new())),
+            dns_listener: Box::new(DnsService::new(dns_socket_path)),
+            message_publisher: Some(Box::new(mqtt_service)),
         }
     }
 
     pub fn has_mqtt_config(&self) -> bool {
-        self.mqtt_config.is_some()
+        self.message_publisher.is_some()
     }
 
     pub async fn start(&self) -> Result<()> {
-        let listener = UnixListener::bind(self.dns_socket_path.clone()).with_context(|| {
-            format!(
-                "Cannot bind to DNS listener {}",
-                self.dns_socket_path.display()
-            )
-        })?;
-        info!("listening on {}", self.dns_socket_path.display());
-
-        let (tx, mut rx) = mpsc::channel(10);
-
-        let mut mqtt_client = if let Some(c) = &self.mqtt_config {
-            let mqtt_client = MqttClient::new(
-                c.mqtt_host.as_str(),
-                c.mqtt_port,
-                c.mqtt_username.as_str(),
-                c.mqtt_password.as_str(),
-            );
-            info!("MQTT configured to {}:{}", c.mqtt_host, c.mqtt_port);
-            Some(mqtt_client)
-        } else {
-            None
-        };
+        let (tx, mut rx) = mpsc::channel::<MqttMessage>(10);
 
         // Watch for interrupts so we can send death message via MQTT.
         let mut hup_signal = signal(SignalKind::hangup()).context("couldn't listen for SIGHUP")?;
 
         error!("Server ready");
 
-        if let Some(ref c) = mqtt_client {
-            self.send_birth(*c.client.clone()).await;
+        if let Some(ref publisher) = self.message_publisher {
+            publisher.send_birth().await?;
         }
+
+        // Start DNS listener in a separate task
+        let dns_listener = self.dns_listener.box_clone();
+        let tx_clone = tx.clone();
+        let dns_task = tokio::spawn(async move { dns_listener.start_listening(tx_clone).await });
 
         loop {
             tokio::select! {
@@ -128,125 +109,36 @@ impl Bridge {
                 _ = hup_signal.recv() => {
                     break;
                 },
-                _ = self.accept_dns(&listener, tx.clone(), Arc::clone(&self.doorbells)) => {},
-                v = self.check_mqtt_notifications(&mut mqtt_client) => {
-                    if let Err(e) = v {
-                        error!("Problem with MQTT: {}", e);
-                        break;
+                msg = rx.recv() => {
+                    if let Some(message) = msg {
+                        if let Some(ref publisher) = self.message_publisher {
+                            if let Err(e) = publisher.publish(message).await {
+                                error!("Failed to publish message: {}", e);
+                            }
+                        } else {
+                            // Log message if no publisher is configured
+                            match message {
+                                MqttMessage::Publish { topic, payload } => {
+                                    info!(
+                                        "{}: {}",
+                                        topic,
+                                        String::from_utf8_lossy(payload.as_slice())
+                                    );
+                                }
+                            }
+                        }
                     }
                 },
-                v = rx.recv() => {
-                    if let Some(ref mut c) = mqtt_client {
-                        let client_copy = c.client.clone();
-                        self.publish_message(*client_copy, v).await;
-                    }
-                },
             }
         }
 
-        if let Some(c) = mqtt_client {
-            self.send_death(*c.client.clone()).await;
+        if let Some(ref publisher) = self.message_publisher {
+            publisher.send_death().await?;
         }
+
+        // Cancel DNS listener task
+        dns_task.abort();
 
         Ok(())
-    }
-
-    async fn accept_dns(
-        &self,
-        listener: &UnixListener,
-        sender: Sender<MqttMessage>,
-        doorbells: Arc<Mutex<HashSet<String>>>,
-    ) {
-        let stream = match listener.accept().await {
-            Ok((stream, _addr)) => stream,
-            Err(e) => panic!("failure to connect: {}", e),
-        };
-
-        task::spawn(async move {
-            let dns_socket = DnsSocket::new(stream.into_std().unwrap(), sender, doorbells);
-            match dns_socket.handle_stream().await {
-                Ok(_) => info!("server disconnected"),
-                Err(err) => warn!("error on thread: {}", err),
-            }
-        });
-    }
-
-    async fn check_mqtt_notifications(
-        &self,
-        mqtt_client: &mut Option<MqttClient>,
-    ) -> Result<(), ConnectionError> {
-        if let Some(ref mut c) = mqtt_client {
-            let event = match c.eventloop.poll().await {
-                Ok(event) => event,
-                Err(e) if matches!(e, ConnectionError::ConnectionRefused(_)) => {
-                    return Err(e);
-                }
-                Err(e) => {
-                    debug!("Problem connecting to MQTT: {:?}", e);
-                    sleep(Duration::from_secs(1)).await;
-                    return Ok(());
-                }
-            };
-            debug!("mqtt: received {:?}", event);
-        }
-        Ok(())
-    }
-
-    async fn publish_message(&self, client: rumqttc::AsyncClient, msg: Option<MqttMessage>) {
-        match msg {
-            Some(MqttMessage::Publish {
-                topic: topic_suffix,
-                payload,
-            }) => {
-                if let Some(config) = &self.mqtt_config {
-                    let topic = format!("{}/{}", config.mqtt_topic_prefix, topic_suffix);
-                    trace!(
-                        "Sending MQTT packet topic '{}' payload '{}'",
-                        topic,
-                        String::from_utf8_lossy(payload.as_slice()),
-                    );
-                    client
-                        .publish(topic, QoS::AtLeastOnce, false, payload)
-                        .await
-                        .unwrap();
-                } else {
-                    info!(
-                        "{}: {}",
-                        topic_suffix,
-                        String::from_utf8_lossy(payload.as_slice())
-                    );
-                }
-            }
-            None => todo!(),
-        }
-    }
-
-    async fn send_birth(&self, client: rumqttc::AsyncClient) {
-        info!("We have started");
-        if let Some(c) = &self.mqtt_config {
-            let _ = client
-                .publish(
-                    format!("{}/status", c.mqtt_topic_prefix),
-                    QoS::AtLeastOnce,
-                    true,
-                    "online",
-                )
-                .await;
-        }
-    }
-
-    async fn send_death(&self, client: rumqttc::AsyncClient) {
-        info!("We are exiting");
-        if let Some(c) = &self.mqtt_config {
-            let _ = client
-                .publish(
-                    format!("{}/status", c.mqtt_topic_prefix),
-                    QoS::AtLeastOnce,
-                    true,
-                    "offline",
-                )
-                .await;
-            let _ = client.disconnect().await;
-        }
     }
 }
