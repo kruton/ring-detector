@@ -3,5 +3,9 @@ pub mod dnstap {
 }
 pub mod bridge;
 pub mod dns;
+pub mod dns_service;
+pub mod listener;
+pub mod messaging;
 pub mod mqtt;
+pub mod mqtt_service;
 pub mod net;
