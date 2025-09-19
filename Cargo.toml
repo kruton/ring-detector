@@ -22,7 +22,7 @@ lto = true
 opt-level = 'z'   # Optimize for size.
 
 [dependencies]
-anyhow = "1.0.96"
+anyhow = "1.0.100"
 async-trait = "0.1.51"
 bytes = "1.9.0"
 clap = { version = "4.5.45", features = ["derive", "env"] }
