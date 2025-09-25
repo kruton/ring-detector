@@ -449,7 +449,7 @@ checksum = "42703706b716c37f96a77aea830392ad231f44c9e9a67872fa5548707e11b11c"
 [[package]]
 name = "fstrm"
 version = "0.1.0"
-source = "git+https://github.com/sorz/rust-fstrm/?rev=5416fa0#5416fa061a0c563953b442c965df15cef4888fd9"
+source = "git+https://github.com/sorz/rust-fstrm/?rev=798164b0d83778daec30d9701772936de3ec94b0#798164b0d83778daec30d9701772936de3ec94b0"
 dependencies = [
  "byteorder",
  "log",

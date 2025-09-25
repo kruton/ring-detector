@@ -17,7 +17,7 @@
 use super::{dnstap::Dnstap, mqtt::MqttMessage, net::parse_octets};
 use anyhow::{anyhow, Context, Result};
 use dns_parser::Packet as DnsPacket;
-use fstrm::FstrmReader;
+use fstrm::reader;
 use log::{debug, info};
 use prost::{bytes::BytesMut, Message};
 use std::{
@@ -60,7 +60,7 @@ impl DnsSocket {
     pub async fn handle_stream(&self) -> Result<()> {
         info!("connected to DNS server");
         let _ = self.stream.set_nonblocking(false);
-        let reader = FstrmReader::<_, ()>::new(&self.stream);
+        let reader = reader::reader(&self.stream);
         let mut reader = reader.accept()?.start()?;
         debug!("FSTRM handshake finish {:?}", reader.content_types());
 
