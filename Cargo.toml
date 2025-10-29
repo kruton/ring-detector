@@ -41,5 +41,5 @@ tempfile = "3.2.0"
 prost-build = "0.14.0"
 
 [dev-dependencies]
-assert_cmd = "2.0.16"
+assert_cmd = "2.1.1"
 predicates = "3.1.3"
