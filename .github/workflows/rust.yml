@@ -30,10 +30,10 @@ jobs:
       uses: dtolnay/rust-toolchain@stable
       with:
         components: llvm-tools-preview
-    - uses: taiki-e/install-action@a24ba45235ed716ff76646268742990dc9458860 # v2.62.42
+    - uses: taiki-e/install-action@81ecf985428d5c2ea81dbf079bceca32bc9604ab # v2.62.43
       with:
         tool: cargo-llvm-cov
-    - uses: taiki-e/install-action@a24ba45235ed716ff76646268742990dc9458860 # v2.62.42
+    - uses: taiki-e/install-action@81ecf985428d5c2ea81dbf079bceca32bc9604ab # v2.62.43
       with:
         tool: nextest
       
